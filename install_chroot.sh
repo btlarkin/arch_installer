@@ -21,4 +21,9 @@ fi
 
 grub-mkconfig -o /boot/grub/grub.cfg
 
+# Set hardware clock from system clock
+hwclock --systohc
+# Set timezone
+ln -sf /usr/share/zoneinfo/America/Chicago /etc/localtime
+
 
