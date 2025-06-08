@@ -31,4 +31,17 @@ dialog --title "Choose your hard drive" --no-cancel --radiolist \
 
 hd=$(cat hd) && rm hd
 
+# Ask for the size of the swap partition
+default_size="8"
+dialog --no-cancel --inputbox \
+    "You need four partitions: Boot, Root and Swap \n\
+    The boot partition will be 512M \n\
+    The root partition will be the remaining of the hard disk \n\n\
+    Enter below the partition size (in GB) for the Swap. \n\n\
+    If you don't enter anything, it will default to ${default_size}G. \n" \
+    20 60 2> swap_size
+
+size=$(cat swap_size) && rm swap_size
+
+[[ $size =~ ^[0-9]+$ ]] || size=$default_size
 
