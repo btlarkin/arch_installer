@@ -45,3 +45,31 @@ size=$(cat swap_size) && rm swap_size
 
 [[ $size =~ ^[0-9]+$ ]] || size=$default_size
 
+dialog --no-cancel \
+    --title "!!! DELETE EVERYTHING !!!" \
+    --menu "Choose the way you'll wipe your hard disk ($hd)" \
+    15 60 4 \
+    1 "Use dd (wipe all disk)" \
+    2 "Use shred (slow & secure)" \
+    3 "No need - my hard disk is empty" 2> eraser
+
+hderaser=$(cat eraser); rm eraser
+
+# This function can wipe out a hard disk
+# DO NOT RUN THIS FUNCTION ON YOUR ACTUAL SYSTEM!!!!
+# If you did it, DO NOT CALL IT!!
+# If you did it, I'm sorry.
+function eraseDisk() {
+    case $1 in
+        1) dd if=/dev/zero of="$hd" status=progress 2>&1 \
+            | dialog \
+            --title "Formatting $hd..." \
+            --progressbox --stdout 20 60;;
+        2) shred -v "$hd" \
+            | dialog \
+            --title "Formatting $hd..." \
+            --progressbox --stdout 20 60;;
+        3) ;;
+    esac
+}
+
