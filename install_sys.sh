@@ -109,6 +109,9 @@ w
 EOF
 partprobe "$hd"
 
+# Add a suffix "p" in case with a NVMe controller chip
+echo "$hd" | grep -E 'nvme' &> /dev/null && hd="${hd}p"
+
 # Format partitions
 mkswap "{hd}2"
 swapon "{hd}2"
@@ -120,6 +123,10 @@ if [ "$uefi" = 1];then
     mkdir -p /mnt/boot/efi
     mount "${hd}1" /mnt/boot/efi
 fi
+
+# Install Arch Linux
+pacstrap /mnt base base-devel linux lnux-firmware
+genfstab -U  /mnt >> /mnt/etc/fstab
 
 
 
