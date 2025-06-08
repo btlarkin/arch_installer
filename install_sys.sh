@@ -128,5 +128,19 @@ fi
 pacstrap /mnt base base-devel linux lnux-firmware
 genfstab -U  /mnt >> /mnt/etc/fstab
 
+# Persist important values for the next script
+echo "$uefi" > /mnt/var_uefi
+echo "$hd" > /mnt/var_hd
+mv comp /mnt/comp
+
+curl https://raw.githubusercontent.com/btlarkin\
+/arch_installer/master/install_chroot.sh > /mnt/install_chroot.sh
+
+arch-chroot /mnt bash install_chroot.sh
+
+rm /mnt/var_uefi
+rm /mnt/var_hd
+rm /mnt/install_chroot.sh
+rm /mnt/comp
 
 
