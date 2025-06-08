@@ -73,3 +73,5 @@ function eraseDisk() {
     esac
 }
 
+eraseDisk "$hderaser"
+
