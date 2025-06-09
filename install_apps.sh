@@ -76,3 +76,6 @@ echo "$packages" | while read -r line; do
     fi
 done
 
+# Adding sudo power
+echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers  
+
