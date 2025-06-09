@@ -21,7 +21,8 @@ apps=("essential" "Essentials" on
       "zsh" "The Z-Shell (zsh)" on
       "neovim" "Neovim" on
       "urxvt" "URxvt" on
-      "js" "JavaScript tooling" off
+      "js" "JavaScript tooling" on
+      "music""terminal music player(kew)" on
       "google" "Google (Browser)" on
       "firefox" "Firefox (browser)" off
       "qutebrowser" "Qutebrowser (browser)" off
@@ -33,4 +34,12 @@ You can select an option with SPACE and valid your choices with ENTER." \
 0 0 0 \
 "${apps[@]}" 2> app_choices
 choices=$(cat app_choices) && rm app_choices
+
+# Create a regex to only select the packages we want
+selection="^$(echo $choices | sed -e 's/ /,|^/g'),"
+lines=$(grep -E "$selection" "$apps_path")
+count=$(echo "$lines" | wc -l)
+packages=$(echo "$lines" | awk -F, {'print $2'})
+
+echo "$selection" "$lines" "$count" >> "/tmp/packages"
 
