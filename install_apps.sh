@@ -79,3 +79,11 @@ done
 # Adding sudo power
 echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers  
 
+# Invoking last install script
+
+curl https://raw.githubusercontent.com/btlarkin\
+/arch_installer/master/install_user.sh > /tmp/install_user.sh;
+
+# Switch user and run the final script
+sudo -u "$name" sh /tmp/install_user.sh
+
