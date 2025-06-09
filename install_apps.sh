@@ -43,3 +43,8 @@ packages=$(echo "$lines" | awk -F, {'print $2'})
 
 echo "$selection" "$lines" "$count" >> "/tmp/packages"
 
+# Updating system
+pacman -Syu --noconfirm
+
+
+
