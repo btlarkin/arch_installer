@@ -1,14 +1,15 @@
 #!/bin/bash
 
 name=$(cat /tmp/user_name)
+
 apps_path="/tmp/apps.csv"
 
 curl https://raw.githubusercontent.com/btlarkin\
-    /arch_installer/main/apps.csv > $apps_path
+/arch_installer/main/apps.csv > $apps_path
 
 dialog --title "Welcome!" \
-    --msgbox "Welcome to the install script for your apps and dotfiles!" \
-        10 60
+--msgbox "Welcome to the install script for your apps and dotfiles!" \
+    10 60
 
 # Allow the user to select the group of packages he (or she) wants to install.
 apps=("essential" "Essentials" on
@@ -21,10 +22,8 @@ apps=("essential" "Essentials" on
       "zsh" "The Z-Shell (zsh)" on
       "neovim" "Neovim" on
       "urxvt" "URxvt" on
-      "js" "JavaScript tooling" on
-      "music""terminal music player(kew)" on
-      "google" "Google (Browser)" on
       "firefox" "Firefox (browser)" off
+      "js" "JavaScript tooling" off
       "qutebrowser" "Qutebrowser (browser)" off
       "lynx" "Lynx (browser)" off)
 
@@ -43,10 +42,8 @@ packages=$(echo "$lines" | awk -F, {'print $2'})
 
 echo "$selection" "$lines" "$count" >> "/tmp/packages"
 
-# Updating system
 pacman -Syu --noconfirm
 
-# Installing the packages
 rm -f /tmp/aur_queue
 
 dialog --title "Let's go!" --msgbox \
@@ -76,13 +73,10 @@ echo "$packages" | while read -r line; do
     fi
 done
 
-# Adding sudo power
-echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers  
+echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
 
-# Invoking last install script
 curl https://raw.githubusercontent.com/btlarkin\
 /arch_installer/main/install_user.sh > /tmp/install_user.sh;
 
 # Switch user and run the final script
 sudo -u "$name" sh /tmp/install_user.sh
-
