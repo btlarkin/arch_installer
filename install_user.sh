@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# Usual Linux directories
 mkdir -p "/home/$(whoami)/Documents"
 mkdir -p "/home/$(whoami)/Downloads"
 
-# Install packages from AUR 
+# Function able to install any package from the AUR (needs the package names as arguments).
 aur_install() {
     curl -O "https://aur.archlinux.org/cgit/aur.git/snapshot/$1.tar.gz" \
     && tar -xvf "$1.tar.gz" \
@@ -41,7 +40,6 @@ do
     aur_check "$line"
 done
 
-# Install DOTFILES 
 DOTFILES="/home/$(whoami)/dotfiles"
 if [ ! -d "$DOTFILES" ]; then
     git clone https://github.com/btlarkin/dotfiles.git \
@@ -50,5 +48,3 @@ fi
 
 source "$DOTFILES/zsh/.zshenv"
 cd "$DOTFILES" && bash install.sh
-
-
