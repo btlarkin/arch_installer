@@ -48,3 +48,17 @@ fi
 
 source "$DOTFILES/zsh/.zshenv"
 cd "$DOTFILES" && bash install.sh
+
+# ─── DevAccelerator Vault & Bootstrap ───
+echo "🌱 Cloning DevAccelerator and bootstrapping…"
+mkdir -p "$HOME/workspace"
+git clone https://github.com/btlarkin/DevAccelerator.git "$HOME/workspace/DevAccelerator"
+cd "$HOME/workspace/DevAccelerator"
+chmod +x bootstrap.sh
+./bootstrap.sh
+
+# ─── Make project scripts globally available ───
+chmod +x scripts/new_project.sh scripts/launch_project.sh
+ln -sf "$PWD/scripts/new_project.sh" /usr/local/bin/new_project
+ln -sf "$PWD/scripts/launch_project.sh" /usr/local/bin/launch_project
+
