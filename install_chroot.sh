@@ -1,88 +1,99 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+trap 'echo "[ERR] chroot stage failed at line $LINENO"; exit 1' ERR
 
-uefi=$(cat /var_uefi); hd=$(cat /var_hd);
+# Preconditions
+[ "$(id -u)" -eq 0 ] || { echo "Run as root"; exit 1; }
+. /etc/os-release; [ "${ID:-}" = "arch" ] || { echo "Arch chroot required"; exit 1; }
 
-cat /comp > /etc/hostname && rm /comp
+# Inputs from stage-1
+uefi="$(cat /var_uefi)"; hd="$(cat /var_hd)"
+cat /comp > /etc/hostname && rm -f /comp
+HN="$(cat /etc/hostname)"
 
-pacman --noconfirm -S dialog
+# Base tools needed for prompts + bootloader + network + sudo
+pacman -S --noconfirm --needed dialog grub sudo networkmanager systemd-timesyncd
 
-pacman -S --noconfirm grub
-
-if [ "$uefi" = 1 ]; then
-    pacman -S --noconfirm efibootmgr
-    grub-install --target=x86_64-efi \
-        --bootloader-id=GRUB \
-        --efi-directory=/boot/efi
+# Bootloader
+if [ "$uefi" = "1" ]; then
+  pacman -S --noconfirm --needed efibootmgr
+  grub-install --target=x86_64-efi --bootloader-id=GRUB --efi-directory=/boot/efi
 else
-    grub-install "$hd"
+  grub-install "$hd"
 fi
-
 grub-mkconfig -o /boot/grub/grub.cfg
 
-# Set hardware clock from system clock
+# Time, locale, hosts
+timedatectl set-ntp true
+TZ="${TZ:-America/Chicago}"
+ln -sf "/usr/share/zoneinfo/${TZ}" /etc/localtime
 hwclock --systohc
-# To list the timezones: `timedatectl list-timezones`
-ln -sf /usr/share/zoneinfo/America/Chicago/etc/localtime
 
-# Replace en_US.UTF-8 by whatever locale you want.
-# You can run `cat /etc/locale.gen` to see all the locales available
-echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+# Enable locale cleanly
+sed -i 's/^#\s*en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen
-echo "LANG=en_US.UTF-8" > /etc/locale.conf
+printf 'LANG=en_US.UTF-8\n' > /etc/locale.conf
 
-# No argument: ask for a username.
-# One argument: use the username passed as argument.
-function config_user() {
-    if [ -z "$1" ]; then
-        dialog --no-cancel --inputbox "Please enter your username." \
-            10 60 2> name
-    else
-        echo "$1" > name
-    fi
-    dialog --no-cancel --passwordbox "Enter your password." \
-        10 60 2> pass1
-    dialog --no-cancel --passwordbox "Confirm your password." \
-        10 60 2> pass2
-    while [ "$(cat pass1)" != "$(cat pass2)" ]
-    do
-        dialog --no-cancel --passwordbox \
-            "Passwords do not match.\n\nEnter password again." \
-            10 60 2> pass1
-        dialog --no-cancel --passwordbox \
-            "Retype your password." \
-            10 60 2> pass2
+# Hosts
+cat > /etc/hosts <<EOF
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   ${HN}.localdomain ${HN}
+EOF
+
+# User setup
+config_user() {
+  local target="$1"
+  local name pass1 pass2
+  if [ "$target" = "root" ]; then
+    dialog --title "root password" --msgbox "Set root password" 7 40
+    while :; do
+      pass1=$(dialog --no-cancel --passwordbox "Enter root password." 9 60 3>&1 1>&2 2>&3)
+      pass2=$(dialog --no-cancel --passwordbox "Confirm root password." 9 60 3>&1 1>&2 2>&3)
+      [ "$pass1" = "$pass2" ] && break
+      dialog --msgbox "Passwords do not match. Try again." 7 40
     done
-
-    name=$(cat name) && rm name
-    pass1=$(cat pass1) && rm pass1 pass2
-
-    # Create user if doesn't exist
-    if [[ ! "$(id -u "$name" 2> /dev/null)" ]]; then
-        dialog --infobox "Adding user $name..." 4 50
-        useradd -m -g wheel -s /bin/bash "$name"
-    fi
-
-    # Add password to user
-    echo "$name:$pass1" | chpasswd
+    echo "root:${pass1}" | chpasswd
+  else
+    name="$(dialog --no-cancel --inputbox "Enter new username." 8 50 3>&1 1>&2 2>&3)"
+    while :; do
+      pass1=$(dialog --no-cancel --passwordbox "Enter password for ${name}." 9 60 3>&1 1>&2 2>&3)
+      pass2=$(dialog --no-cancel --passwordbox "Confirm password for ${name}." 9 60 3>&1 1>&2 2>&3)
+      [ "$pass1" = "$pass2" ] && break
+      dialog --msgbox "Passwords do not match. Try again." 7 40
+    done
+    id -u "$name" >/dev/null 2>&1 || useradd -m -G wheel -s /bin/bash "$name"
+    echo "${name}:${pass1}" | chpasswd
+    echo "$name" > /tmp/user_name
+  fi
 }
-
-dialog --title "root password" \
-    --msgbox "It's time to add a password for the root user" \
-    10 60
 config_user root
+dialog --title "Add User" --msgbox "Create a non-root user." 7 40
+config_user user
 
-dialog --title "Add User" \
-    --msgbox "Let's create another user." \
-    10 60
-config_user
+# Sudo for wheel via drop-in
+install -Dm440 /dev/stdin /etc/sudoers.d/10-wheel <<'EOF'
+%wheel ALL=(ALL:ALL) ALL
+EOF
 
-# Save your username for the next script.
-echo "$name" > /tmp/user_name
+# Enable services
+systemctl enable NetworkManager
+systemctl enable systemd-timesyncd
 
-# Ask to install all your apps / dotfiles.
-dialog --title "Continue installation" --yesno \
-"Do you want to install all your apps and your dotfiles?" \
-10 60 \
-&& curl https://raw.githubusercontent.com/btlarkin\
-/arch_installer/main/install_apps.sh > /tmp/install_apps.sh \
-&& bash /tmp/install_apps.sh
+# Optional apps/dotfiles step (private: execute local file if staged by stage-1)
+if dialog --yesno "Install apps/dotfiles now?" 7 50; then
+  if [ -x /install_apps.sh ]; then
+    bash /install_apps.sh
+  elif [ -x /root/install_apps.sh ]; then
+    bash /root/install_apps.sh
+  else
+    dialog --msgbox "install_apps.sh not found. Skipping." 7 50
+  fi
+fi
+
+# Cleanup vars
+rm -f /var_uefi /var_hd
+
+clear
+echo "== PAKAGES Installer — Private Edition complete =="
+echo "Reboot, login as your user, then continue your private bootstrap."
