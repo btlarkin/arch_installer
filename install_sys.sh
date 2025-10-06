@@ -1,95 +1,60 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+trap 'echo "[ERR] line $LINENO"; exit 1' ERR
+[ "$(id -u)" -eq 0 ] || { echo "Run as root"; exit 1; }
+. /etc/os-release; [ "${ID:-}" = arch ] || { echo "Arch ISO required"; exit 1; }
 
-# Never run pacman -Sy on your system!
-pacman -Sy dialog --noconfirm
+VERSION="PAKAGES Installer — Private Edition v1.0"
+echo "== ${VERSION} =="
+
+# dialog for prompts
+pacman -Sy --noconfirm dialog
 
 timedatectl set-ntp true
 
-# Welcome message of type yesno - see `man dialog`
 dialog --defaultno --title "Are you sure?" --yesno \
-"This is my personal arch linux install. \n\n\
-It will just DESTROY EVERYTHING on the hard disk of your choice. \n\n\
-Don't say YES if you are not sure about what you're doing! \n\n\
-Are you sure?" 15 60 || exit
+"This will DESTROY EVERYTHING on the target disk.\n\nContinue?" 12 60 || exit 0
 
-dialog --no-cancel --inputbox "Enter a name for your computer." \
-    10 60 2> comp
+dialog --no-cancel --inputbox "Enter a hostname:" 8 50 2> comp
+comp=$(cat comp); rm -f comp
 
-comp=$(cat comp) && rm comp
+# Detect UEFI
+uefi=0; [ -d /sys/firmware/efi/efivars ] && uefi=1
 
-# Verify boot (UEFI or BIOS)
-uefi=0
-ls /sys/firmware/efi/efivars 2> /dev/null && uefi=1
-
-# Choosing the hard drive
-devices_list=($(lsblk -d | awk '{print "/dev/" $1 " " $4 " on"}' \
-    | grep -E 'sd|hd|vd|nvme|mmcblk'))
-
+# Pick disk
+mapfile -t devices_list < <(lsblk -dn -o NAME,SIZE,TYPE | awk '$3=="disk"{print "/dev/"$1" "$2" off"}')
 dialog --title "Choose your hard drive" --no-cancel --radiolist \
-"Where do you want to install your new system? \n\n\
-Select with SPACE, valid with ENTER. \n\n\
-WARNING: Everything will be DESTROYED on the hard disk!" \
-15 60 4 "${devices_list[@]}" 2> hd
+"Select with SPACE, confirm with ENTER.\nWARNING: Disk will be wiped." \
+15 60 6 "${devices_list[@]}" 2> hd
+hd=$(cat hd); rm -f hd
 
-hd=$(cat hd) && rm hd
-
-# Ask for the size of the swap partition
+# Swap size
 default_size="8"
 dialog --no-cancel --inputbox \
-"You need four partitions: Boot, Root and Swap \n\
-The boot partition will be 512M \n\
-The root partition will be the remaining of the hard disk \n\n\
-Enter below the partition size (in Gb) for the Swap. \n\n\
-If you don't enter anything, it will default to ${default_size}G. \n" \
-20 60 2> swap_size
-
-size=$(cat swap_size) && rm swap_size
-
+"Partitions:\n- Boot: 512M\n- Swap: your size\n- Root: rest\n\nEnter Swap size in GB (default ${default_size}):" \
+14 60 2> swap_size
+size=$(cat swap_size); rm -f swap_size
 [[ $size =~ ^[0-9]+$ ]] || size=$default_size
 
-dialog --no-cancel \
---title "!!! DELETE EVERYTHING !!!" \
---menu "Choose the way you'll wipe your hard disk ($hd)" \
-15 60 4 \
-1 "Use dd (wipe all disk)" \
-2 "Use schred (slow & secure)" \
-3 "No need - my hard disk is empty" 2> eraser
+# Wipe choice
+dialog --no-cancel --menu "Wipe method for $hd" 12 50 3 \
+1 "dd (overwrite with zeros)" \
+2 "shred (secure, slower)" \
+3 "Skip (disk already empty)" 2> eraser
+hderaser=$(cat eraser); rm -f eraser
 
-hderaser=$(cat eraser); rm eraser
-
-# This function can wipe out a hard disk.
-# DO NOT RUN THIS FUNCTION ON YOUR ACTUAL SYSTEM!
-# If you did it, DO NOT CALL IT!!
-# If you did it, I'm sorry.
-function eraseDisk() {
-    case $1 in
-        1) dd if=/dev/zero of="$hd" status=progress 2>&1 \
-            | dialog \
-            --title "Formatting $hd..." \
-            --progressbox --stdout 20 60;;
-        2) shred -v "$hd" \
-            | dialog \
-            --title "Formatting $hd..." \
-            --progressbox --stdout 20 60;;
-        3) ;;
-    esac
+eraseDisk() {
+  case "$1" in
+    1) dd if=/dev/zero of="$hd" status=progress 2>&1 | dialog --title "Wiping $hd with dd..." --progressbox --stdout 20 60;;
+    2) shred -v "$hd"            2>&1 | dialog --title "Wiping $hd with shred..." --progressbox --stdout 20 60;;
+    3) :;;
+  esac
 }
-
 eraseDisk "$hderaser"
 
-boot_partition_type=1
-[[ "$uefi" == 0 ]] && boot_partition_type=4
-
-# Create the partitions
-
-#g - create non empty GPT partition table
-#n - create new partition
-#p - primary partition
-#e - extended partition
-#w - write the table to disk and exit
-
+# Partitioning with fdisk (GPT)
 partprobe "$hd"
-
+boot_type=1; [ "$uefi" -eq 0 ] && boot_type=4
 fdisk "$hd" << EOF
 g
 n
@@ -97,7 +62,7 @@ n
 
 +512M
 t
-$boot_partition_type
+$boot_type
 n
 
 
@@ -108,51 +73,50 @@ n
 
 w
 EOF
-
 partprobe "$hd"
 
-# Add a suffix "p" in case with have a NVMe controller chip
-echo "$hd" | grep -E 'nvme' &> /dev/null && hd="${hd}p"
+# NVMe suffix
+echo "$hd" | grep -q nvme && hd="${hd}p"
 
-# Format the partitions
+# Filesystems
 mkswap "${hd}2"
 swapon "${hd}2"
-mkfs.ext4 "${hd}3"
+mkfs.ext4 -F "${hd}3"
 mount "${hd}3" /mnt
 
-if [ "$uefi" = 1 ]; then
-    mkfs.fat -F32 "${hd}1"
-    mkdir -p /mnt/boot/efi
-    mount "${hd}1" /mnt/boot/efi
+if [ "$uefi" -eq 1 ]; then
+  mkfs.fat -F32 "${hd}1"
+  mkdir -p /mnt/boot/efi
+  mount "${hd}1" /mnt/boot/efi
 fi
 
-# Install Arch Linux! Glory and fortune!
+# Base system
 pacstrap /mnt base base-devel linux linux-firmware
 genfstab -U /mnt >> /mnt/etc/fstab
 
-# Persist important values for the next script
+# Pass vars to chroot stage
 echo "$uefi" > /mnt/var_uefi
-echo "$hd" > /mnt/var_hd
-mv comp /mnt/comp
+echo "$hd"   > /mnt/var_hd
+echo "$comp" > /mnt/comp
 
-# Don't forget to replace "Phantas0s" by the username of your Github account
-curl https://raw.githubusercontent.com/btlarkin\
-/arch_installer/main/install_chroot.sh > /mnt/install_chroot.sh
+# Prefer local chroot script (private repo); fallback disabled for privacy
+if [ -f "./install_chroot.sh" ]; then
+  install -m 0755 ./install_chroot.sh /mnt/install_chroot.sh
+else
+  echo "[FATAL] install_chroot.sh missing in repo"; exit 1
+fi
 
-arch-chroot /mnt bash install_chroot.sh
+arch-chroot /mnt bash /install_chroot.sh
 
-rm /mnt/var_uefi
-rm /mnt/var_hd
-rm /mnt/install_chroot.sh
-rm /mnt/comp
+# Cleanup
+rm -f /mnt/var_uefi /mnt/var_hd /mnt/install_chroot.sh /mnt/comp
 
-dialog --title "To reboot or not to reboot?" --yesno \
-"Congrats! The install is done! \n\n\
-Do you want to reboot your computer?" 20 60
-
-response=$?
-
-case $response in
-    0) reboot;;
-    1) clear;;
-esac
+# Reboot prompt with private handoff (print only; no files/MOTD)
+NEXT_PRIV='git clone git@github.com:btlarkin/PAKAGES-private.git ~/PSAK && bash ~/PSAK/scripts/ages_bootstrap.sh'
+dialog --yesno "Install complete.\n\nReboot now?" 10 40
+resp=$?
+clear
+echo "== ${VERSION} =="
+echo "After first login as your user, run:"
+echo "${NEXT_PRIV}"
+[ "$resp" -eq 0 ] && reboot || true
