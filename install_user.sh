@@ -1,64 +1,75 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-mkdir -p "/home/$(whoami)/Documents"
-mkdir -p "/home/$(whoami)/Downloads"
+# --- basics ---
+mkdir -p "$HOME/Documents" "$HOME/Downloads"
 
-# Function able to install any package from the AUR (needs the package names as arguments).
+# --- helpers ---
 aur_install() {
-    curl -O "https://aur.archlinux.org/cgit/aur.git/snapshot/$1.tar.gz" \
-    && tar -xvf "$1.tar.gz" \
-    && cd "$1" \
-    && makepkg --noconfirm -si \
-    && cd - \
-    && rm -rf "$1" "$1.tar.gz"
+  local pkg="$1"
+  local tmp
+  tmp="$(mktemp -d)"
+  (
+    cd "$tmp"
+    curl -fsSLO "https://aur.archlinux.org/cgit/aur.git/snapshot/${pkg}.tar.gz"
+    tar -xzf "${pkg}.tar.gz"
+    cd "$pkg"
+    makepkg --noconfirm -si
+  )
+  rm -rf "$tmp"
 }
 
 aur_check() {
-    qm=$(pacman -Qm | awk '{print $1}')
-    for arg in "$@"
-    do
-        if [[ "$qm" != *"$arg"* ]]; then
-            yay --noconfirm -S "$arg" &>> /tmp/aur_install \
-                || aur_install "$arg" &>> /tmp/aur_install
-        fi
-    done
+  local installed
+  installed="$(pacman -Qm 2>/dev/null | awk '{print $1}')"
+  for pkg in "$@"; do
+    if ! grep -qx "$pkg" <<<"$installed"; then
+      if command -v yay >/dev/null 2>&1; then
+        yay --noconfirm -S "$pkg" &>> /tmp/aur_install || aur_install "$pkg" &>> /tmp/aur_install
+      else
+        aur_install "$pkg" &>> /tmp/aur_install
+      fi
+    fi
+  done
 }
 
-cd /tmp
-dialog --infobox "Installing \"Yay\", an AUR helper..." 10 60
+msg() { command -v dialog >/dev/null && dialog --infobox "$1" 7 60 || echo "$1"; }
+
+# --- ensure yay present ---
+msg 'Installing "yay" AUR helper (if needed)…'
 aur_check yay
 
-count=$(wc -l < /tmp/aur_queue)
-c=0
-
-cat /tmp/aur_queue | while read -r line
-do
-    c=$(( "$c" + 1 ))
-    dialog --infobox \
-    "AUR install - Downloading and installing program $c out of $count: $line..." \
-    10 60
-    aur_check "$line"
-done
-
-DOTFILES="/home/$(whoami)/dotfiles"
-if [ ! -d "$DOTFILES" ]; then
-    git clone https://github.com/btlarkin/dotfiles.git \
-    "$DOTFILES" >/dev/null
+# --- process /tmp/aur_queue if present ---
+QUEUE="/tmp/aur_queue"
+if [[ -s "$QUEUE" ]]; then
+  mapfile -t pkgs < <(grep -Ev '^\s*(#|$)' "$QUEUE")
+  total="${#pkgs[@]}"
+  i=0
+  for p in "${pkgs[@]}"; do
+    i=$((i+1))
+    msg "AUR install ($i/$total): $p"
+    aur_check "$p"
+  done
+else
+  msg "No /tmp/aur_queue found or it is empty. Skipping AUR bulk install."
 fi
 
-source "$DOTFILES/zsh/.zshenv"
-cd "$DOTFILES" && bash install.sh
+# --- dotfiles ---
+DOTFILES="$HOME/dotfiles"
+if [[ ! -d "$DOTFILES" ]]; then
+  msg "Cloning dotfiles…"
+  git clone https://github.com/btlarkin/dotfiles.git "$DOTFILES" >/dev/null
+else
+  msg "Updating dotfiles…"
+  git -C "$DOTFILES" pull --ff-only || true
+fi
 
-# ─── DevAccelerator Vault & Bootstrap ───
-echo "🌱 Cloning DevAccelerator and bootstrapping…"
-mkdir -p "$HOME/workspace"
-git clone https://github.com/btlarkin/DevAccelerator.git "$HOME/workspace/DevAccelerator"
-cd "$HOME/workspace/DevAccelerator"
-chmod +x bootstrap.sh
-./bootstrap.sh
+# shell env then install
+if [[ -f "$DOTFILES/zsh/.zshenv" ]]; then
+  # shellcheck disable=SC1090
+  source "$DOTFILES/zsh/.zshenv"
+fi
+bash "$DOTFILES/install.sh"
 
-# ─── Make project scripts globally available ───
-chmod +x scripts/new_project.sh scripts/launch_project.sh
-ln -sf "$PWD/scripts/new_project.sh" /usr/local/bin/new_project
-ln -sf "$PWD/scripts/launch_project.sh" /usr/local/bin/launch_project
-
+# --- done ---
+msg "User setup complete."
