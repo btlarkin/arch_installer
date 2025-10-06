@@ -1,47 +1,93 @@
-essential,xorg,X server
-essential,xorg-xinit,Display server boot
-essential,man,Manual
+essential,xorg-server,X.Org server
+essential,xorg-xinit,Start X sessions
+essential,xorg-xrandr,XRandR CLI
+essential,xorg-xset,X settings tool
+essential,xorg-xauth,Xauthority for startx
+essential,man-db,Manual pages viewer
 essential,man-pages,Manual pages
-essential,tldr,Quick read manual
-network,openssh,Remote login tool for SSH protocol
-network,networkmanager,Network manager
-tools,rsync,Synchronizing files across computers
-tools,arandr,xrandr GUI
-tools,xclip,Manipulate the X selection
-tools,fzf,Command line fuzzy finder
-tools,udiskie,Automount devices
-tools,lxappearance,Theme switcher for GTK+
-tools,xcape,Configure modifier keys to act as other keys
-tools,ripgrep,Faster alternative to grep
-tools,htop,Interactive process viewer
-tools,python-pip,Python package manager
-tmux,tmux,Terminal multiplexer
-tmux,tmuxp,Configure tmux session + windows + panes via config files
-notifier,dunst,Notification system
-notifier,libnotify,Notifier
-git,git,Version control system
-git,diff-so-fancy,Human readable git diff
-i3,i3-wm,i3 window tile manager
-i3,i3status,i3 status bar
-i3,i3lock,i3 lock monitor
-i3,dmenu,Dynamic menu for X
-i3,feh,X11 image viewer
-i3,arc-gtk-theme,Desktop themes
-zsh,zsh,Unix shell (Z-Shell)
-zsh,zsh-completions,Additional completions for Zsh
-zsh,zsh-syntax-highlighting,Syntax highlighting for ZSH
-neovim,neovim,Editor... and much more
-neovim,python-neovim,Python for neovim
-neovim,python2-neovim,Python2 for neovim (AUR)
-neovim,ruby-neovim,Ruby for neovim (AUR)
-neovim,nodejs-neovim,Nodejs for neovim (AUR)
-js,nodejs,Nodejs (for coc.vim)
-js,yarn,Dependency manager (for coc.vim)
-urxvt,rxvt-unicode,Terminal Urxvt
-urxvt,urxvt-tabbedex-mina86-git,Improved tabs for Urxvt (AUR)
-google,google-chrome,Browser Google (AUR)
-firefox,firefox,Browser Firefox
-qutebrowser,qutebrowser,Qutebrowser
-lynx,lynx,Text-based browser
-music,kew,Terminal music player(AUR)
+essential,tealdeer,Fast TLDR client
+essential,curl,Data transfer
+essential,wget,Downloader
+essential,zip,Zip files
+essential,unzip,Unzip files
+essential,gnupg,OpenPGP tools
+essential,polkit-gnome,Polkit authentication agent
 
+network,openssh,SSH client/server
+network,networkmanager,Network manager
+network,network-manager-applet,NM tray applet
+
+tools,rsync,File sync
+tools,arandr,XRandR GUI
+tools,xclip,X11 clipboard
+tools,fzf,Fuzzy finder
+tools,udisks2,Disk management service
+tools,udiskie,Automount removable drives
+tools,gvfs,Virtual FS (Trash/SMB/etc)
+tools,gvfs-mtp,Android MTP support
+tools,lxappearance,GTK theme switcher
+tools,xcape,Modifier remap
+tools,ripgrep,Fast grep
+tools,fd,Fast find
+tools,htop,Process viewer
+tools,python-pip,Python package manager
+tools,brightnessctl,Brightness control
+tools,picom,Compositor
+tools,mc,Midnight Commander (TUI file manager)
+
+notifier,dunst,Notification daemon
+notifier,libnotify,Notify utility
+
+git,git,Version control
+git,diff-so-fancy,Readable diffs
+git,github-cli,GitHub CLI (gh)
+
+i3,i3-wm,Tiling window manager
+i3,i3status,Status bar
+i3,i3lock,Screen lock
+i3,dmenu,App launcher
+i3,feh,Image viewer/wallpaper
+
+zsh,zsh,Z shell
+zsh,zsh-completions,Extra completions
+zsh,zsh-syntax-highlighting,Syntax highlighting
+
+neovim,neovim,Editor
+neovim,python-pynvim,Python host for Neovim
+
+tmux,tmux,Terminal multiplexer
+tmux,tmuxp,Tmux session manager
+
+js,nodejs,Node.js runtime
+
+terminal,alacritty,GPU terminal
+terminal,rxvt-unicode,URxvt terminal
+terminal,urxvt-tabbedex-mina86-git,URxvt tabs enhancer [AUR]
+
+browsers,firefox,Web browser
+browsers,qutebrowser,Keyboard-driven browser
+browsers,lynx,Text browser
+browsers,google-chrome,Chrome [AUR]
+
+audio,pipewire,Audio server
+audio,pipewire-pulse,Pulse compat
+audio,wireplumber,PipeWire session
+audio,alsa-utils,ALSA tools
+audio,pavucontrol,Audio mixer GUI
+
+bluetooth,bluez,Bluetooth stack
+bluetooth,bluez-utils,Bluetooth tools
+bluetooth,blueman,Bluetooth tray GUI
+
+fonts,noto-fonts,Pan-Unicode fonts
+fonts,noto-fonts-emoji,Emoji fonts
+fonts,ttf-dejavu,DejaVu fonts
+fonts,ttf-liberation,Liberation fonts
+
+screenshot,flameshot,Screenshot tool
+
+media,obs-studio,Streaming/recording
+
+ai,ollama,Local LLM runtime
+
+music,cmus,Terminal music player
