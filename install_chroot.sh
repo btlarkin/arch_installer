@@ -7,7 +7,7 @@ trap 'echo "[ERR] chroot stage failed at line $LINENO"; exit 1' ERR
 . /etc/os-release; [ "${ID:-}" = "arch" ] || { echo "Arch chroot required"; exit 1; }
 
 # Inputs from stage-1
-uefi="$(cat /var_uefi)"; hd="$(cat /var_hd)"
+uefi=$(cat /var_uefi); hd=$(cat /var_hd);
 cat /comp > /etc/hostname && rm -f /comp
 HN="$(cat /etc/hostname)"
 
