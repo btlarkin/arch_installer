@@ -22,7 +22,8 @@ comp=$(cat comp); rm -f comp
 uefi=0; [ -d /sys/firmware/efi/efivars ] && uefi=1
 
 # Pick disk
-mapfile -t devices_list < <(lsblk -dn -o NAME,SIZE,TYPE | awk '$3=="disk"{print "/dev/"$1" "$2" off"}')
+devices_list=($(lsblk -d | awk '{print "/dev/" $1 " " $4 " on"}' \
+    | grep -E 'sd|hd|vd|nvme|mmcblk'))
 dialog --title "Choose your hard drive" --no-cancel --radiolist \
 "Select with SPACE, confirm with ENTER.\nWARNING: Disk will be wiped." \
 15 60 6 "${devices_list[@]}" 2> hd
