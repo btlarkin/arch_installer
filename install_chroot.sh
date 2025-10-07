@@ -12,7 +12,7 @@ cat /comp > /etc/hostname && rm -f /comp
 HN="$(cat /etc/hostname)"
 
 # Base tools needed for prompts + bootloader + network + sudo
-pacman -S --noconfirm --needed dialog grub sudo networkmanager systemd-timesyncd
+pacman -S --noconfirm dialog grub sudo networkmanager systemd-timesyncd
 
 # Bootloader
 if [ "$uefi" = "1" ]; then
